@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creative Fajar — AI Video Artist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0c0c0e;
+    --bg-raised: #131316;
+    --ink: #f1efe9;
+    --ink-dim: #8c8c92;
+    --rec: #ff3b30;
+    --amber: #e8a33d;
+    --line: #2a2a2e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans', sans-serif;overflow-x:hidden;}
+  ::selection{background:var(--rec);color:#fff;}
+  a{color:inherit;text-decoration:none;}
+  img,video{display:block;max-width:100%;}
+
+  /* ===== Signature timeline scrubber ===== */
+  .scrubber{position:fixed;top:0;left:0;width:100%;height:4px;background:var(--line);z-index:100;}
+  .scrubber-fill{height:100%;width:0%;background:var(--rec);transition:width .08s linear;}
+  .scrubber-head{
+    position:fixed;top:4px;left:0;transform:translateX(-50%);
+    font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.05em;
+    color:var(--rec);background:var(--bg);padding:2px 6px;border:1px solid var(--rec);
+    z-index:100;white-space:nowrap;
+  }
+
+  nav{
+    position:fixed;top:4px;left:0;width:100%;display:flex;justify-content:space-between;
+    align-items:center;padding:18px 24px;z-index:90;mix-blend-mode:difference;
+  }
+  .logo{font-family:'Anton',sans-serif;font-size:18px;letter-spacing:.04em;}
+  .navlinks{display:none;gap:28px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.05em;}
+  @media(min-width:760px){.navlinks{display:flex;}}
+  .rec-badge{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);}
+  .rec-dot{width:7px;height:7px;border-radius:50%;background:var(--rec);animation:blink 1.6s infinite;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.25;}}
+
+  section{padding:110px 6vw 80px;max-width:1200px;margin:0 auto;border-bottom:1px solid var(--line);}
+  .timecode{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--amber);letter-spacing:.08em;margin-bottom:18px;display:block;}
+  h2{font-family:'Anton',sans-serif;font-size:clamp(30px,5vw,52px);text-transform:uppercase;letter-spacing:.01em;margin-bottom:22px;}
+
+  /* ===== HERO ===== */
+  .hero{min-height:100svh;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--line);position:relative;}
+  .hero h1{font-family:'Anton',sans-serif;font-size:clamp(48px, 13vw, 148px);line-height:.92;letter-spacing:.01em;text-transform:uppercase;}
+  .hero h1 .outline{-webkit-text-stroke:1.5px var(--ink);color:transparent;}
+  .hero .tagline{margin-top:28px;font-size:clamp(14px,2vw,18px);color:var(--ink-dim);max-width:560px;font-weight:400;}
+  .hero .role{margin-top:40px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--amber);letter-spacing:.06em;}
+  .hero-cta{margin-top:36px;display:flex;gap:14px;flex-wrap:wrap;}
+  .btn{
+    font-family:'JetBrains Mono',monospace;font-size:12.5px;letter-spacing:.04em;
+    padding:14px 22px;border:1px solid var(--ink);transition:all .25s;display:inline-block;
+  }
+  .btn:hover,.btn:focus-visible{background:var(--amber);border-color:var(--amber);color:#0c0c0e;outline:none;}
+  .btn.ghost{border-color:var(--line);color:var(--ink-dim);}
+  .btn.ghost:hover{border-color:var(--ink);color:var(--ink);background:transparent;}
+  .scroll-cue{position:absolute;bottom:36px;left:6vw;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);display:flex;align-items:center;gap:10px;}
+  .scroll-cue .bar{width:1px;height:28px;background:var(--ink-dim);animation:drop 1.8s infinite;}
+  @keyframes drop{0%{transform:scaleY(0);transform-origin:top;}50%{transform:scaleY(1);transform-origin:top;}51%{transform-origin:bottom;}100%{transform:scaleY(0);transform-origin:bottom;}}
+
+  /* ===== MARQUEE ===== */
+  .marquee-wrap{border-bottom:1px solid var(--line);padding:22px 0;overflow:hidden;background:var(--bg-raised);}
+  .marquee{display:flex;white-space:nowrap;animation:scroll-x 26s linear infinite;width:max-content;}
+  .marquee span{font-family:'Anton',sans-serif;font-size:22px;text-transform:uppercase;color:var(--ink-dim);padding:0 26px;display:flex;align-items:center;gap:26px;}
+  .marquee span::after{content:'•';color:var(--rec);}
+  @keyframes scroll-x{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+
+  /* ===== INTRO ===== */
+  .intro-grid{display:grid;grid-template-columns:1fr;gap:36px;}
+  @media(min-width:760px){.intro-grid{grid-template-columns:0.9fr 1.4fr;gap:60px;}}
+  .intro-frame{aspect-ratio:16/9;background:linear-gradient(155deg,#1c1c20,#0c0c0e);border:1px solid var(--line);position:relative;overflow:hidden;}
+  .intro-frame img{width:100%;height:100%;object-fit:cover;}
+  .intro-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+  .intro-frame::before{content:'FJR // 001';position:absolute;top:12px;left:12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-dim);z-index:2;pointer-events:none;}
+  .intro-frame .scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0px, rgba(255,255,255,.02) 1px, transparent 1px, transparent 3px);pointer-events:none;}
+  .intro-text p{color:var(--ink-dim);font-size:16px;line-height:1.75;margin-bottom:16px;max-width:60ch;}
+  .intro-text strong{color:var(--ink);font-weight:600;}
+
+  /* ===== STATS ===== */
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);}
+  @media(min-width:760px){.stats{grid-template-columns:repeat(4,1fr);}}
+  .stat{background:var(--bg);padding:32px 20px;}
+  .stat .num{font-family:'Anton',sans-serif;font-size:clamp(32px,5vw,48px);color:var(--amber);}
+  .stat .lbl{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);margin-top:6px;letter-spacing:.04em;}
+
+  /* ===== SKILLS ===== */
+  .skill-list{border-top:1px solid var(--line);}
+  .skill-row{display:grid;grid-template-columns:80px 1fr;gap:24px;padding:26px 0;border-bottom:1px solid var(--line);align-items:baseline;}
+  @media(min-width:760px){.skill-row{grid-template-columns:110px 260px 1fr;}}
+  .skill-row .tc{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--amber);}
+  .skill-row h3{font-family:'Anton',sans-serif;font-size:22px;text-transform:uppercase;}
+  .skill-row p{color:var(--ink-dim);font-size:14.5px;line-height:1.6;}
+
+  /* ===== PROCESS ===== */
+  .process-grid{display:grid;grid-template-columns:1fr;gap:0;border-top:1px solid var(--line);}
+  @media(min-width:760px){.process-grid{grid-template-columns:repeat(4,1fr);}}
+  .process-step{padding:28px 22px;border-bottom:1px solid var(--line);position:relative;}
+  @media(min-width:760px){.process-step{border-right:1px solid var(--line);border-bottom:none;}
+    .process-step:last-child{border-right:none;}}
+  .process-step .tc{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--rec);}
+  .process-step h3{font-family:'Anton',sans-serif;font-size:19px;text-transform:uppercase;margin:10px 0 8px;}
+  .process-step p{color:var(--ink-dim);font-size:13.5px;line-height:1.6;}
+
+  /* ===== TOOLS ===== */
+  .tool-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);}
+  @media(min-width:640px){.tool-grid{grid-template-columns:repeat(5,1fr);}}
+  .tool{background:var(--bg);padding:22px 10px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-dim);transition:color .25s,background .25s;}
+  .tool:hover{color:var(--amber);background:var(--bg-raised);}
+
+  .signature-tool{
+    margin-top:1px;padding:26px 22px;background:var(--bg);border:1px solid var(--amber);
+    display:flex;flex-direction:column;gap:6px;position:relative;
+  }
+  .signature-tool .tag{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--rec);letter-spacing:.06em;}
+  .signature-tool h3{font-family:'Anton',sans-serif;font-size:22px;text-transform:uppercase;color:var(--amber);}
+  .signature-tool p{color:var(--ink-dim);font-size:13.5px;line-height:1.6;max-width:60ch;}
+
+  /* ===== PORTFOLIO ===== */
+  .cat-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:32px;flex-wrap:wrap;gap:12px;}
+  .cat-header h2{margin-bottom:0;}
+  .cat-count{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-dim);}
+  .cat-desc{color:var(--ink-dim);font-size:14px;margin:-14px 0 28px;max-width:60ch;}
+  .tile-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+  @media(min-width:640px){.tile-grid{grid-template-columns:repeat(4,1fr);}}
+  .tile-grid.landscape{grid-template-columns:repeat(1,1fr);}
+  @media(min-width:640px){.tile-grid.landscape{grid-template-columns:repeat(2,1fr);}}
+  .tile{
+    position:relative;overflow:hidden;border:1px solid var(--line);cursor:pointer;
+    background:linear-gradient(160deg,var(--tile-a,#1a1a1e),var(--tile-b,#0c0c0e));
+    transition:border-color .35s ease;
+  }
+  .tile.v{aspect-ratio:9/16;}
+  .tile.h{aspect-ratio:16/9;}
+  .tile:hover, .tile:focus-visible{border-color:var(--amber);outline:none;}
+  .tile iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+  .tile video, .tile img.thumb{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
+  .tile .label{position:absolute;bottom:0;left:0;right:0;padding:9px 10px;z-index:2;pointer-events:none;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink);background:linear-gradient(0deg, rgba(0,0,0,.85), transparent);line-height:1.4;}
+  .tile .play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:38px;height:38px;border-radius:50%;border:1px solid var(--ink-dim);display:flex;align-items:center;justify-content:center;opacity:.55;transition:opacity .3s;z-index:2;}
+  .tile:hover .play{opacity:1;border-color:var(--amber);}
+  .tile .play svg{width:12px;height:12px;fill:var(--ink);margin-left:2px;}
+  .cat-block{margin-bottom:64px;}
+  .cat-block:last-child{margin-bottom:0;}
+
+  /* ===== TESTIMONIALS ===== */
+  .testi-grid{display:grid;grid-template-columns:1fr;gap:1px;background:var(--line);border:1px solid var(--line);}
+  @media(min-width:760px){.testi-grid{grid-template-columns:repeat(3,1fr);}}
+  .testi{background:var(--bg);padding:30px 24px;}
+  .testi p{color:var(--ink-dim);font-size:14.5px;line-height:1.7;margin-bottom:18px;}
+  .testi .who{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--amber);}
+  .testi .stars{color:var(--rec);font-size:13px;margin-bottom:10px;letter-spacing:2px;}
+
+  /* ===== CONTACT ===== */
+  .contact{text-align:left;border-bottom:none;}
+  .contact h2{font-size:clamp(34px,7vw,72px);max-width:16ch;}
+  .contact-row{margin-top:44px;display:flex;flex-direction:column;gap:0;}
+  .contact-link{display:flex;justify-content:space-between;align-items:center;padding:20px 0;border-top:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:14px;transition:color .25s;}
+  .contact-link:last-child{border-bottom:1px solid var(--line);}
+  .contact-link:hover{color:var(--amber);}
+  .contact-link span:last-child{color:var(--ink-dim);font-size:12px;}
+  footer{padding:28px 6vw;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+
+  .reveal{opacity:0;transform:translateY(24px);transition:opacity .7s ease, transform .7s ease;}
+  .reveal.in{opacity:1;transform:translateY(0);}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+    html{scroll-behavior:auto;}
+  }
+</style>
+</head>
+<body>
+
+<div class="scrubber"><div class="scrubber-fill" id="scrubFill"></div></div>
+<div class="scrubber-head" id="scrubHead">00:00:00:00</div>
+
+<nav>
+  <span class="logo">CREATIVE FAJAR</span>
+  <span class="navlinks">
+    <a href="#work-cinematic">WORK</a>
+    <a href="#process">PROCESS</a>
+    <a href="#contact">CONTACT</a>
+  </span>
+  <span class="rec-badge"><span class="rec-dot"></span>REC · AVAILABLE FOR PROJECT</span>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero" id="hero">
+  <h1>AI VIDEO<br><span class="outline">ARTIST</span></h1>
+  <p class="tagline">Transform scripts and ideas into cinematic visuals, UGC content, and social media ads — all created with AI, without traditional production costs and time.</p>
+  <span class="role">FAJAR / CREATIVE FAJAR — BASED IN INDONESIA</span>
+  <div class="hero-cta">
+    <a class="btn" href="#work-cinematic">VIEW WORK</a>
+    <a class="btn ghost" href="#contact">GET IN TOUCH</a>
+  </div>
+  <div class="scroll-cue"><div class="bar"></div>SCROLL</div>
+</section>
+
+<!-- ===== MARQUEE ===== -->
+<div class="marquee-wrap">
+  <div class="marquee">
+    <span>GOOGLE VEO 3</span><span>GOOGLE FLOW</span><span>AI CINEMATIC</span><span>AI UGC</span><span>PROMPT ENGINEERING</span>
+    <span>GOOGLE VEO 3</span><span>GOOGLE FLOW</span><span>AI CINEMATIC</span><span>AI UGC</span><span>PROMPT ENGINEERING</span>
+  </div>
+</div>
+
+<!-- ===== INTRO ===== -->
+<section id="intro">
+  <span class="timecode">00:00:12:04 — INTRODUCTION</span>
+  <div class="intro-grid">
+    <div class="intro-frame reveal">
+      <iframe src="https://drive.google.com/file/d/1Xwx6QZ_XGRLaY0ixmUXYoiRh-dDE7UAL/preview" allow="autoplay" loading="lazy" title="Podcast — Creative Fajar"></iframe>
+    </div>
+    <div class="intro-text reveal">
+      <h2>Hi, I'm Fajar</h2>
+      <p>I'm an <strong>AI Artist &amp; Video Creator</strong> based in Indonesia, specialized in AI-powered video production using <strong>Google Veo 3</strong> and <strong>Google Flow</strong>. I built the "Creative Fajar" brand to deliver visual content projects: from scroll-stopping social media ads, AI UGC content, to cinematic studio-quality visuals.</p>
+      <p>Every project starts with a raw script or idea, then translated into structured prompts and character anchor systems — ensuring the final output stays cohesive scene-by-scene, ready for brands, agencies, and individual creators.</p>
+      <div class="hero-cta">
+        <a class="btn ghost" href="#contact">Let's discuss your project →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== STATS ===== -->
+<section id="stats" style="padding-top:0;padding-bottom:0;border-bottom:none;">
+  <div class="stats reveal">
+    <div class="stat"><div class="num">00+</div><div class="lbl">PROJECTS COMPLETED</div></div>
+    <div class="stat"><div class="num">00+</div><div class="lbl">INTERNATIONAL CLIENTS</div></div>
+    <div class="stat"><div class="num">2</div><div class="lbl">CORE TOOL — VEO 3 &amp; FLOW</div></div>
+    <div class="stat"><div class="num">24H</div><div class="lbl">AVERAGE TURNAROUND</div></div>
+  </div>
+</section>
+
+<!-- ===== SKILLS ===== -->
+<section id="skills">
+  <span class="timecode">00:01:04:00 — CORE AI SKILL</span>
+  <h2>What I Do</h2>
+  <div class="skill-list">
+    <div class="skill-row reveal">
+      <span class="tc">01</span>
+      <h3>AI Video Generation</h3>
+      <p>Produce cinematic visuals and motion content from scratch using Google Veo 3 and Google Flow.</p>
+    </div>
+    <div class="skill-row reveal">
+      <span class="tc">02</span>
+      <h3>Prompt Engineering</h3>
+      <p>Structure prompts (JSON) to maintain character consistency, style, and environment across every scene.</p>
+    </div>
+    <div class="skill-row reveal">
+      <span class="tc">03</span>
+      <h3>AI Video Editing</h3>
+      <p>Edit short-form and social media content with AI-driven workflows for fast, engaging results.</p>
+    </div>
+    <div class="skill-row reveal">
+      <span class="tc">04</span>
+      <h3>Creative Direction</h3>
+      <p>Design visual concepts, mood, and narrative aligned with brand or personal content goals.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PROCESS ===== -->
+<section id="process">
+  <span class="timecode">00:01:48:00 — HOW I WORK</span>
+  <h2>Production Process</h2>
+  <div class="process-grid">
+    <div class="process-step reveal">
+      <span class="tc">STEP 01</span>
+      <h3>Brief &amp; Script</h3>
+      <p>Discuss your needs, visual references, and content goals together.</p>
+    </div>
+    <div class="process-step reveal">
+      <span class="tc">STEP 02</span>
+      <h3>Prompt Design</h3>
+      <p>Build prompt structure and character anchors to keep visuals consistent across all scenes.</p>
+    </div>
+    <div class="process-step reveal">
+      <span class="tc">STEP 03</span>
+      <h3>Generate &amp; Edit</h3>
+      <p>Produce visuals with Veo 3 / Flow, then edit and finish for final delivery.</p>
+    </div>
+    <div class="process-step reveal">
+      <span class="tc">STEP 04</span>
+      <h3>Review &amp; Deliver</h3>
+      <p>Revise per your feedback, then send final files ready to use.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== TOOLS ===== -->
+<section id="tools">
+  <span class="timecode">00:02:02:00 — TOOLS</span>
+  <h2>Software &amp; Platforms</h2>
+  <div class="tool-grid reveal">
+    <div class="tool">Google Veo 3</div>
+    <div class="tool">Google Flow</div>
+    <div class="tool">CapCut</div>
+    <div class="tool">ElevenLabs</div>
+    <div class="tool">Canva</div>
+    <div class="tool">Claude</div>
+    <div class="tool">ChatGPT</div>
+    <div class="tool">Gemini</div>
+    <div class="tool">Nano Banana 2</div>
+    <div class="tool">Nano Banana Pro</div>
+  </div>
+  <div class="signature-tool reveal">
+    <span class="tag">PROPRIETARY WORKFLOW</span>
+    <h3>Master JSON Prompt Generator — by Creative Fajar</h3>
+    <p>Custom prompt generator I built to structure scene-by-scene JSON — locking character, environment, lip-sync style, and mood consistency across every video generated from Veo 3 and Flow.</p>
+  </div>
+</section>
+
+<!-- ===== PORTFOLIO ===== -->
+<section id="work-cinematic">
+  <div class="cat-block">
+    <div class="cat-header">
+      <div>
+        <span class="timecode">00:02:18:00 — SELECTED WORK</span>
+        <h2>Podcast</h2>
+      </div>
+      <span class="cat-count">01 PROJECTS</span>
+    </div>
+    <div class="tile-grid landscape">
+      <div class="tile h reveal">
+        <iframe src="https://drive.google.com/file/d/1Xwx6QZ_XGRLaY0ixmUXYoiRh-dDE7UAL/preview" allow="autoplay" loading="lazy" title="Podcast — Episode 01"></iframe>
+        <span class="label">Podcast — Episode 01</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="cat-block">
+    <div class="cat-header">
+      <div>
+        <span class="timecode">00:03:00:00 — SELECTED WORK</span>
+        <h2>AI UGC Ads</h2>
+      </div>
+      <span class="cat-count">13 PROJECTS</span>
+    </div>
+    <div class="tile-grid">
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1YP-L4mOzDrCHvflspeqCsz4YUx6yCLFW/preview" allow="autoplay" loading="lazy" title="AI UGC Ads 01"></iframe>
+        <span class="label">AI UGC Ads 01</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1hG3dlNyYXnG1AwbHFQ_CcNWwkuge3Ctc/preview" allow="autoplay" loading="lazy" title="AI UGC Ads 02"></iframe>
+        <span class="label">AI UGC Ads 02</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1mS-eHgXvcX8WDb66pH2KXPBlPR-RUus_/preview" allow="autoplay" loading="lazy" title="AI UGC Ads 03"></iframe>
+        <span class="label">AI UGC Ads 03</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1nGC4mpfk5ryOoL1feJPh2k2AUZR9uRDJ/preview" allow="autoplay" loading="lazy" title="AI UGC Ads 04"></iframe>
+        <span class="label">AI UGC Ads 04</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1K8rIyUscQXAJ79SdtTEcxB5SfQ52tuOC/preview" allow="autoplay" loading="lazy" title="AI UGC Ads 05"></iframe>
+        <span class="label">AI UGC Ads 05</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1W9PtiIQCwZNp1eNELqB_Wwii4Jpor97J/preview" allow="autoplay" loading="lazy" title="AI UGC Ads 06"></iframe>
+        <span class="label">AI UGC Ads 06</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1tCYVviYmS8LQPXvu4jB6fu9h2InJSi0V/preview" allow="autoplay" loading="lazy" title="AI UGC Ads 07"></iframe>
+        <span class="label">AI UGC Ads 07</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1UwsloO0G9f9yiOw-yXhE2yQVuQgc2RF9/preview" allow="autoplay" loading="lazy" title="AI UGC Ads 08"></iframe>
+        <span class="label">AI UGC Ads 08</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1MMsdvyA5J15DH2gAGf8T9074LUKHFgbg/preview" allow="autoplay" loading="lazy" title="AI UGC Ads 09"></iframe>
+        <span class="label">AI UGC Ads 09</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1rv-v-wj803N4JPF2qOGzPiuTksX7qxOb/preview" allow="autoplay" loading="lazy" title="AI UGC Ads 10"></iframe>
+        <span class="label">AI UGC Ads 10</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1CLi8ZUnwp3BsvFiIUEB1O_7L93xvmZNG/preview" allow="autoplay" loading="lazy" title="AI UGC Ads 11"></iframe>
+        <span class="label">AI UGC Ads 11</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1xRxu64k8buClt3r_NYp81zS0JWN5uWmI/preview" allow="autoplay" loading="lazy" title="AI UGC Ads 12"></iframe>
+        <span class="label">AI UGC Ads 12</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1QFDqp4GEszPKpHHo7d6d6nH9jho8Rfn5/preview" allow="autoplay" loading="lazy" title="AI UGC Ads 13"></iframe>
+        <span class="label">AI UGC Ads 13</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="cat-block">
+    <div class="cat-header">
+      <div>
+        <span class="timecode">00:04:10:00 — SELECTED WORK</span>
+        <h2>Beauty &amp; Skincare</h2>
+      </div>
+      <span class="cat-count">04 PROJECTS</span>
+    </div>
+    <div class="tile-grid">
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1cI2dqhGq3YHhSEKxJejkX9v9LRbx2vil/preview" allow="autoplay" loading="lazy" title="Beauty & Skincare 01"></iframe>
+        <span class="label">Beauty & Skincare 01</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/17LsE3ATnYbAxy-NMsqYvkYoxJtEyd-uA/preview" allow="autoplay" loading="lazy" title="Beauty & Skincare 02"></iframe>
+        <span class="label">Beauty & Skincare 02</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1A07Cmb3wV4WvYyBfjR0_vnGz02Ehg9ZA/preview" allow="autoplay" loading="lazy" title="Beauty & Skincare 03"></iframe>
+        <span class="label">Beauty & Skincare 03</span>
+      </div>
+      <div class="tile v reveal">
+        <iframe src="https://drive.google.com/file/d/1s-7MOsaB2Y7YVWKhrvcgKls4rFEOxtwJ/preview" allow="autoplay" loading="lazy" title="Beauty & Skincare 04"></iframe>
+        <span class="label">Beauty & Skincare 04</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="cat-block">
+    <div class="cat-header">
+      <div>
+        <span class="timecode">00:05:00:00 — SELECTED WORK</span>
+        <h2>Premium Product Commercial</h2>
+      </div>
+      <span class="cat-count">08 PROJECTS</span>
+    </div>
+    <div class="tile-grid landscape">
+      <div class="tile h reveal">
+        <iframe src="https://drive.google.com/file/d/1DwYB_jkIkWEB50WrXAnfOSOZD0oWp4JM/preview" allow="autoplay" loading="lazy" title="Premium Product Commercial 01"></iframe>
+        <span class="label">Premium Product Commercial 01</span>
+      </div>
+      <div class="tile h reveal">
+        <iframe src="https://drive.google.com/file/d/1BF0DGTaoHaesr23bDIpBlrOiMyRHBfZb/preview" allow="autoplay" loading="lazy" title="Premium Product Commercial 02"></iframe>
+        <span class="label">Premium Product Commercial 02</span>
+      </div>
+      <div class="tile h reveal">
+        <iframe src="https://drive.google.com/file/d/1NlGt80Of2Y2f8eCT8DGeQI37GP9OAX-c/preview" allow="autoplay" loading="lazy" title="Premium Product Commercial 03"></iframe>
+        <span class="label">Premium Product Commercial 03</span>
+      </div>
+      <div class="tile h reveal">
+        <iframe src="https://drive.google.com/file/d/1E07JYCcx7nSURTRpgpsc9CemrWXJAAZp/preview" allow="autoplay" loading="lazy" title="Premium Product Commercial 04"></iframe>
+        <span class="label">Premium Product Commercial 04</span>
+      </div>
+      <div class="tile h reveal">
+        <iframe src="https://drive.google.com/file/d/1yuFCXS5lufjHJ8UUkqKS0KOsA8ZHC-qp/preview" allow="autoplay" loading="lazy" title="Premium Product Commercial 05"></iframe>
+        <span class="label">Premium Product Commercial 05</span>
+      </div>
+      <div class="tile h reveal">
+        <iframe src="https://drive.google.com/file/d/1eqyZwQ275XrwM2yqRqBK0kM9CrEfmtyb/preview" allow="autoplay" loading="lazy" title="Premium Product Commercial 06"></iframe>
+        <span class="label">Premium Product Commercial 06</span>
+      </div>
+      <div class="tile h reveal">
+        <iframe src="https://drive.google.com/file/d/1Y4XvqrAq2UKQ8o1puwSWDPHnpCzdHQVg/preview" allow="autoplay" loading="lazy" title="Premium Product Commercial 07"></iframe>
+        <span class="label">Premium Product Commercial 07</span>
+      </div>
+      <div class="tile h reveal">
+        <iframe src="https://drive.google.com/file/d/1dWHn0dg-v5sGucbJr1X6AaGLJJkz-xo8/preview" allow="autoplay" loading="lazy" title="Premium Product Commercial 08"></iframe>
+        <span class="label">Premium Product Commercial 08</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="cat-block">
+    <div class="cat-header">
+      <div>
+        <span class="timecode">00:05:50:00 — BEHIND THE SCENES</span>
+        <h2>My Own Demo Generator Application Workflow</h2>
+      </div>
+      <span class="cat-count">01 PROJECTS</span>
+    </div>
+    <div class="tile-grid landscape">
+      <div class="tile h reveal">
+        <iframe src="https://drive.google.com/file/d/1HK4LyN24s0Hm5ArGWVuGYNpA1V7xfqsJ/preview" allow="autoplay" loading="lazy" title="Demo Generator Workflow 01"></iframe>
+        <span class="label">Demo Generator Workflow 01</span>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ===== TESTIMONIALS ===== -->
+<section id="testimonials">
+  <span class="timecode">00:05:10:00 — CLIENT FEEDBACK</span>
+  <h2>What Clients Say</h2>
+  <div class="testi-grid reveal">
+    <div class="testi">
+      <div class="stars">★★★★★</div>
+      <p>"Replace with client testimonial here."</p>
+      <div class="who">CLIENT NAME — COMPANY/PLATFORM</div>
+    </div>
+    <div class="testi">
+      <div class="stars">★★★★★</div>
+      <p>"Replace with client testimonial here."</p>
+      <div class="who">CLIENT NAME — COMPANY/PLATFORM</div>
+    </div>
+    <div class="testi">
+      <div class="stars">★★★★★</div>
+      <p>"Replace with client testimonial here."</p>
+      <div class="who">CLIENT NAME — COMPANY/PLATFORM</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CONTACT ===== -->
+<section class="contact" id="contact">
+  <span class="timecode">00:05:40:00 — GET IN TOUCH</span>
+  <h2>Got a video project in mind? Let's make it happen.</h2>
+  <div class="contact-row">
+    <a class="contact-link" href="mailto:Creativefajar10@gmail.com"><span>Email</span><span>Creativefajar10@gmail.com</span></a>
+    <a class="contact-link" href="https://wa.me/6282229338881" target="_blank" rel="noopener"><span>WhatsApp</span><span>+62 822-2933-8881</span></a>
+    <a class="contact-link" href="https://instagram.com/Hijau.botol13" target="_blank" rel="noopener"><span>Instagram</span><span>@Hijau.botol13</span></a>
+    <a class="contact-link" href="https://www.upwork.com" target="_blank" rel="noopener"><span>Upwork</span><span>View Profile</span></a>
+  </div>
+</section>
+
+<footer>
+  <span>© CREATIVE FAJAR</span>
+  <span>MADE WITH GOOGLE VEO 3 &amp; GOOGLE FLOW</span>
+</footer>
+
+<script>
+  const fill = document.getElementById('scrubFill');
+  const head = document.getElementById('scrubHead');
+  function fmtTC(pct){
+    const totalFrames = Math.floor(pct * 24 * 60 * 6);
+    const fr = totalFrames % 24;
+    const sec = Math.floor(totalFrames / 24) % 60;
+    const min = Math.floor(totalFrames / 24 / 60);
+    const pad = n => String(n).padStart(2,'0');
+    return `00:${pad(min)}:${pad(sec)}:${pad(fr)}`;
+  }
+  function onScroll(){
+    const h = document.documentElement;
+    const pct = h.scrollTop / (h.scrollHeight - h.clientHeight || 1);
+    fill.style.width = (pct*100) + '%';
+    head.style.left = (pct*100) + '%';
+    head.textContent = fmtTC(pct);
+  }
+  document.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+
+  const observer = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('in'); });
+  },{threshold:0.15});
+  document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+</script>
+
+</body>
+</html>
